@@ -10,6 +10,7 @@ const take           = require('lodash/fp/take')
 const split           = require('lodash/fp/split')
 const join           = require('lodash/fp/join')
 const flow           = require('lodash/fp/flow')
+const _ = require('lodash')
 const request         = require("request")
 const DelimiterStream = require('delimiter-stream')
 
@@ -18,8 +19,8 @@ const noEndJpeg = flow(contains('ffd9'), negate)
 const extractHeaders = flow([split('\n'), take(1), join('\n')])
 const stripHeaders = flow([split('\n'), drop(1), join('\n')])
 
-const JPEG_START_OF_IMAGE = 0xffd8
-const JPEG_END_OF_IMAGE = 0xffd9
+const JPEG_START_OF_IMAGE = new Buffer('ffd8', 'hex')
+const JPEG_END_OF_IMAGE = new Buffer('ffd9', 'hex')
 const RED_OFFSET = 50
 // const dStream = new DelimiterStream({
 //   delimiter: '--BoundaryString'
@@ -44,33 +45,24 @@ const onImage = (image) => {
   })
 
   // image.write('test.jpg')
-  console.log('mean', mean(x_values))
-  console.log('direction:', (mean(x_values) - (image.bitmap.width / 2)) / image.bitmap.width)
+  // console.log('mean', mean(x_values))
+  // console.log('direction:', (mean(x_values) - (image.bitmap.width / 2)) / image.bitmap.width)
 }
 
 const onData = (data) => {
   buffer = Buffer.concat([buffer, data])
-  const hex = buffer.toString('hex')
-  if (!contains('ffd9', hex)) return
-  // console.log('buffer', new Buffer(buffString).toString('hex'))
-  const start = hex.indexOf('ffd8')
-  const end   = hex.indexOf('ffd9') + 4
-  const imageHex = hex.substring(start, end)
-  const image = new Buffer(imageHex, 'hex')
+  if (!buffer.includes(JPEG_START_OF_IMAGE) || !buffer.includes(JPEG_END_OF_IMAGE)) return
+
+  const start = buffer.indexOf(JPEG_START_OF_IMAGE)
+  const end = buffer.indexOf(JPEG_END_OF_IMAGE) + 4
+  const image = buffer.slice(start, end)
   buffer = buffer.slice(end)
 
-  // fs.writeFileSync('test.jpg', image)
   Jimp.read(image, (error, image) => {
     if (error) throw error
     if (!image) return
     onImage(image)
   })
-  // const rawData = jpeg.decode(image)
-  // Jimp.read(stripHeaders(data), (error, image) => {
-  //   if (error) throw error
-  //   console.log('image', image.bitmap.width)
-  //   process.exit(0)
-  // })
 }
 
 request

@@ -1,0 +1,30 @@
+<html>
+<head>
+<style>
+  html, body {
+    height: 100%;
+    width: 100%;
+  }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: black;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.js"></script>
+</head>
+<body>
+  <img id="image" src="file:///Users/octoblu/Projects/sqrtofsaturn/opencv/test.jpg" />
+
+<script>
+const refreshImage = () => {
+  $('#image').attr('src', `file:///Users/octoblu/Projects/sqrtofsaturn/opencv/test.jpg?date=${Date.now() + Math.random()}`)
+}
+
+$(function() {
+  setInterval(refreshImage, 100)
+})
+</script>
+</body>
+</html>
