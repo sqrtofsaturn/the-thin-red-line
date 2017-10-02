@@ -31,6 +31,7 @@ class RedLineFinder  extends EventEmitter {
     if(!imageStreamUrl) throw new Error("imageStreamUrl is required")
     this.imageStreamUrl = imageStreamUrl
     this.buffer = new Buffer(0)
+    this.redOffset = 0
   }
 
   do() {
@@ -40,21 +41,28 @@ class RedLineFinder  extends EventEmitter {
   }
 
   onImage (image) {
-    const x_values = []
+    const xValues = []
+    const redValues = []
 
     image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
       const red   = image.bitmap.data[ idx + 0 ]
       const green = image.bitmap.data[ idx + 1 ]
       const blue  = image.bitmap.data[ idx + 2 ]
+      if (red > 0) {
+        redValues.push(red / (green + blue + red))
+      }
 
-      if (red > (green + RED_OFFSET) && red > (blue + RED_OFFSET)) {
-        image.bitmap.data[ idx + 0 ] = 255
+      if (red > ((RED_OFFSET + blue + green + red) * this.redOffset)) {
+        image.bitmap.data[ idx + 0 ] = (255 * (this.redOffset - 0.20) * 5)
         image.bitmap.data[ idx + 1 ] = 0
         image.bitmap.data[ idx + 2 ] = 0
-        x_values.push(x)
+        xValues.push(x)
       }
     })
-    this.emit('data', (mean(x_values) - (image.bitmap.width / 2)) / image.bitmap.width)
+    // image.write('test.jpg')
+    this.redOffset = mean(redValues)
+    // console.log(this.redOffset)
+    this.emit('data', (mean(xValues) - (image.bitmap.width / 2)) / image.bitmap.width)
   }
 
   onData (data) {
