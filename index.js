@@ -2,8 +2,10 @@ const fs              = require("fs")
 const Jimp            = require("jimp")
 const mean            = require('lodash/fp/mean')
 const includes        = require('lodash/fp/includes')
+const identity        = require('lodash/fp/identity')
 const drop            = require('lodash/fp/drop')
 const contains        = require('lodash/fp/contains')
+const maxBy           = require('lodash/fp/maxBy')
 const negate          = require('lodash/fp/negate')
 const take            = require('lodash/fp/take')
 const split           = require('lodash/fp/split')
@@ -15,6 +17,7 @@ const request         = require("request")
 const DelimiterStream = require('delimiter-stream')
 const {EventEmitter}  = require('events')
 
+const max = maxBy(identity)
 const noStartJpeg = flow(contains('ffd8'), negate)
 const noEndJpeg = flow(contains('ffd9'), negate)
 const extractHeaders = flow([split('\n'), take(1), join('\n')])
@@ -22,7 +25,7 @@ const stripHeaders = flow([split('\n'), drop(1), join('\n')])
 
 const JPEG_START_OF_IMAGE = new Buffer('ffd8', 'hex')
 const JPEG_END_OF_IMAGE = new Buffer('ffd9', 'hex')
-const RED_OFFSET = 50
+// const RED_OFFSET = 50
 
 class RedLineFinder  extends EventEmitter {
   constructor ({imageStreamUrl}) {
@@ -52,16 +55,17 @@ class RedLineFinder  extends EventEmitter {
         redValues.push(red / (green + blue + red))
       }
 
-      if (red > ((RED_OFFSET + blue + green + red) * this.redOffset)) {
+      if (red > ((blue + green + red) * this.redOffset)) {
         image.bitmap.data[ idx + 0 ] = (255 * (this.redOffset - 0.20) * 5)
         image.bitmap.data[ idx + 1 ] = 0
         image.bitmap.data[ idx + 2 ] = 0
         xValues.push(x)
       }
     })
-    // image.write('test.jpg')
-    this.redOffset = mean(redValues)
-    // console.log(this.redOffset)
+    image.write('test.jpg')
+
+    this.redOffset = (0.7 * mean(redValues)) + (0.3 * max(redValues))
+    console.log(this.redOffset)
     this.emit('data', (mean(xValues) - (image.bitmap.width / 2)) / image.bitmap.width)
   }
 
