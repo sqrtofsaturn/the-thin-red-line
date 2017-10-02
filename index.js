@@ -2,10 +2,8 @@ const fs              = require("fs")
 const Jimp            = require("jimp")
 const mean            = require('lodash/fp/mean')
 const includes        = require('lodash/fp/includes')
-const identity        = require('lodash/fp/identity')
 const drop            = require('lodash/fp/drop')
 const contains        = require('lodash/fp/contains')
-const maxBy           = require('lodash/fp/maxBy')
 const negate          = require('lodash/fp/negate')
 const take            = require('lodash/fp/take')
 const split           = require('lodash/fp/split')
@@ -17,7 +15,6 @@ const request         = require("request")
 const DelimiterStream = require('delimiter-stream')
 const {EventEmitter}  = require('events')
 
-const max = maxBy(identity)
 const noStartJpeg = flow(contains('ffd8'), negate)
 const noEndJpeg = flow(contains('ffd9'), negate)
 const extractHeaders = flow([split('\n'), take(1), join('\n')])
@@ -25,7 +22,7 @@ const stripHeaders = flow([split('\n'), drop(1), join('\n')])
 
 const JPEG_START_OF_IMAGE = new Buffer('ffd8', 'hex')
 const JPEG_END_OF_IMAGE = new Buffer('ffd9', 'hex')
-// const RED_OFFSET = 50
+const RED_OFFSET = 50
 
 class RedLineFinder  extends EventEmitter {
   constructor ({imageStreamUrl}) {
@@ -34,7 +31,6 @@ class RedLineFinder  extends EventEmitter {
     if(!imageStreamUrl) throw new Error("imageStreamUrl is required")
     this.imageStreamUrl = imageStreamUrl
     this.buffer = new Buffer(0)
-    this.redOffset = 0
   }
 
   do() {
@@ -44,29 +40,21 @@ class RedLineFinder  extends EventEmitter {
   }
 
   onImage (image) {
-    const xValues = []
-    const redValues = []
+    const x_values = []
 
     image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
       const red   = image.bitmap.data[ idx + 0 ]
       const green = image.bitmap.data[ idx + 1 ]
       const blue  = image.bitmap.data[ idx + 2 ]
-      if (red > 0) {
-        redValues.push(red / (green + blue + red))
-      }
 
-      if (red > ((blue + green + red) * this.redOffset)) {
-        image.bitmap.data[ idx + 0 ] = (255 * (this.redOffset - 0.20) * 5)
+      if (red > (green + RED_OFFSET) && red > (blue + RED_OFFSET)) {
+        image.bitmap.data[ idx + 0 ] = 255
         image.bitmap.data[ idx + 1 ] = 0
         image.bitmap.data[ idx + 2 ] = 0
-        xValues.push(x)
+        x_values.push(x)
       }
     })
-    image.write('test.jpg')
-
-    this.redOffset = (0.7 * mean(redValues)) + (0.3 * max(redValues))
-    console.log(this.redOffset)
-    this.emit('data', (mean(xValues) - (image.bitmap.width / 2)) / image.bitmap.width)
+    this.emit('data', (mean(x_values) - (image.bitmap.width / 2)) / image.bitmap.width)
   }
 
   onData (data) {
